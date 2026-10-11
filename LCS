@@ -1,0 +1,196 @@
+#pragma once
+#include <bits/stdc++.h>
+
+// ============================================================================
+// LCS ライブラリ
+// ============================================================================
+//
+// ---- 関数一覧と使い分け ----------------------------------------------------
+//
+//   lcs_len_small<'0',10>(a, b)   数字列の長さのみ          O(nm/64)
+//   lcs_len_small<'a',26>(a, b)   英小文字列の長さのみ      O(nm/64)
+//   lcs_len(string a, string b)   任意char列の長さのみ      O(nm/64)  ※迷ったらこれ
+//   lcs_len(vector<T>, vector<T>) 一般の列の長さのみ        O(nm/64)  内部で座標圧縮
+//   lcs_len_distinct(a, b)        ★bが重複なしのとき       O((n+m) log m)  LIS帰着
+//   lcs_restore(a, b)             復元あり(string/vector)   O(nm) time & space
+//
+// ---- 制約・注意 -------------------------------------------------------------
+//
+// * lcs_len_small: 全文字が [OFF, OFF+SIGMA) にあること。範囲外文字はUB(未検査)。
+//   入力に空白等が混ざる事故に注意。安全側に倒すなら lcs_len(256版)を使う。
+// * lcs_len 各種: 実測 n=m=1e5 で約250ms (O2)。2秒TLなら nm ≲ 8e10 まで。
+// * lcs_len(vector<T>): メモリ O(K·m/64)、K = mask側の異なり値数。
+//   K·⌈m/64⌉ ≲ 1e7 (≈80MB) が目安。K=m=1e5 だと約1.25GBで死ぬので、
+//   Kが大きい = 重複が少ない場合は lcs_len_distinct への帰着を疑うこと。
+// * lcs_len_distinct: 【bに重複がないこと】(assertで検査)。aの重複は問題なし。
+//   順列である必要はなく、重複なしなら値域は自由(mapで引くので圧縮不要)。
+//   帰着の原理: bに重複がなければ「bの中で左から右」=「bでの位置が単調増加」
+//   なので、aをbでの位置列に変換した列の【狭義増加】LISがLCSに一致する。
+//   狭義(lower_bound)必須: 広義にすると同じb[j]を複数回マッチして壊れる。
+// * どの関数も呼び出し側での事前の座標圧縮は不要(値を添字に使う箇所は内部処理)。
+// * lcs_restore: 表が 4nm バイト(int)。256MB制限なら nm ≲ 6e7 (n=m≈8000)。
+//   それ以上の復元は Hirschberg(前向き+後ろ向きDPの分割統治)が必要。
+// * 長さ系は向き(どちらをmask側にするか)を自動選択するので呼び出し側は気にしない。
+// * bp_core 内に static があるためスレッド安全ではない(競プロでは無問題)。
+//
+// ---- 検証 -------------------------------------------------------------------
+// 数字/英小文字/負のcharを含む任意char/整数列(片側にしかない値・重複あり) x 2000
+// ケースで2次元DPと一致、復元結果が「両方の部分列かつ長さ一致」を確認。
+// ワード境界(長さ63/64/65)の端ケース含む。
+// 注: テストで assert(lcs_len_small<'0',10>(...)) と書くとマクロがテンプレートの
+//     カンマで割れるので assert((...)) と括弧で包むこと。
+// ============================================================================
+
+namespace lcs_internal {
+
+// ---- bit並列コア (Allison-Dix) ----
+// as: マスク添字列(-1 = bには現れない値), M: 値ごとの位置ビットマスク, W: ワード数
+// 原理: DP行の段差位置をビット列Vで持ち、減算のボロー伝播が
+//       「各ブロックで最左のマッチを1つ選ぶ」greedy更新を一括実行する
+inline int bp_core(const std::vector<int>& as,
+                   const std::vector<std::vector<uint64_t>>& M, int W) {
+    std::vector<uint64_t> V(W, 0);
+    static std::vector<uint64_t> ZERO;
+    if ((int)ZERO.size() < W) ZERO.assign(W, 0);
+    for (int c : as) {
+        const uint64_t* Mc = (c >= 0 ? M[c].data() : ZERO.data());
+        uint64_t shift_in = 1, borrow = 0;
+        for (int w = 0; w < W; w++) {
+            uint64_t x   = V[w] | Mc[w];
+            uint64_t sub = (V[w] << 1) | shift_in;
+            shift_in = V[w] >> 63;
+            uint64_t t  = x - sub;    bool b1 = x < sub;   // ボロー手動伝播
+            uint64_t y  = t - borrow; bool b2 = t < borrow;
+            borrow = b1 | b2;
+            V[w] = x & ~y;
+        }
+    }
+    int res = 0;
+    for (int w = 0; w < W; w++) res += __builtin_popcountll(V[w]);
+    return res;
+}
+
+// 総コスト (outer長 + Σ) * ⌈mask長/64⌉ + mask長 が小さい向きを選ぶ(定数倍最適化)
+inline bool prefer_swap(size_t n, size_t m, size_t sigma) {
+    auto cost = [&](size_t outer, size_t mask) {
+        size_t W = (mask + 63) >> 6;
+        return (outer + sigma) * W + mask;
+    };
+    return cost(m, n) < cost(n, m);  // true なら入れ替え(mask側=a)
+}
+
+} // namespace lcs_internal
+
+// ----------------------------------------------------------------------------
+// 長さのみ (1): 小さいアルファベット  例: <'0',10> 数字 / <'a',26> 英小文字
+// 前提: 全文字が [OFF, OFF+SIGMA) ※範囲外はUB
+// ----------------------------------------------------------------------------
+template <char OFF, int SIGMA>
+int lcs_len_small(const std::string& a, const std::string& b) {
+    const std::string* pa = &a; const std::string* pb = &b;
+    if (lcs_internal::prefer_swap(a.size(), b.size(), SIGMA)) std::swap(pa, pb);
+    const std::string &A = *pa, &B = *pb;
+    int m = B.size(), W = (m + 63) >> 6;
+    std::vector<std::vector<uint64_t>> M(SIGMA, std::vector<uint64_t>(W, 0));
+    for (int j = 0; j < m; j++) M[B[j] - OFF][j >> 6] |= 1ULL << (j & 63);
+    std::vector<int> as(A.size());
+    for (size_t i = 0; i < A.size(); i++) as[i] = A[i] - OFF;
+    return lcs_internal::bp_core(as, M, W);
+}
+
+// ----------------------------------------------------------------------------
+// 長さのみ (2): 任意の char 列 (Σ=256, 負のcharも unsigned char 経由で安全)
+// ----------------------------------------------------------------------------
+inline int lcs_len(const std::string& a, const std::string& b) {
+    const std::string* pa = &a; const std::string* pb = &b;
+    if (lcs_internal::prefer_swap(a.size(), b.size(), 256)) std::swap(pa, pb);
+    const std::string &A = *pa, &B = *pb;
+    int m = B.size(), W = (m + 63) >> 6;
+    std::vector<std::vector<uint64_t>> M(256, std::vector<uint64_t>(W, 0));
+    for (int j = 0; j < m; j++) M[(unsigned char)B[j]][j >> 6] |= 1ULL << (j & 63);
+    std::vector<int> as(A.size());
+    for (size_t i = 0; i < A.size(); i++) as[i] = (unsigned char)A[i];
+    return lcs_internal::bp_core(as, M, W);
+}
+
+// ----------------------------------------------------------------------------
+// 長さのみ (3): 一般の列 (mask側の値だけ内部で座標圧縮; T は < と == が必要)
+// メモリ O(K·m/64) に注意 (ヘッダ上部の制約参照)
+// ----------------------------------------------------------------------------
+template <class T>
+int lcs_len(const std::vector<T>& a, const std::vector<T>& b) {
+    const std::vector<T>* pa = &a; const std::vector<T>* pb = &b;
+    // Σ は圧縮後の異なり数(最大でmask長)なので mask長で近似して向きを決める
+    if (lcs_internal::prefer_swap(a.size(), b.size(), std::min(a.size(), b.size())))
+        std::swap(pa, pb);
+    const std::vector<T> &A = *pa, &B = *pb;
+    int m = B.size(), W = (m + 63) >> 6;
+    std::vector<T> vals(B);
+    std::sort(vals.begin(), vals.end());
+    vals.erase(std::unique(vals.begin(), vals.end()), vals.end());
+    int K = vals.size();
+    std::vector<std::vector<uint64_t>> M(K, std::vector<uint64_t>(W, 0));
+    for (int j = 0; j < m; j++) {
+        int c = std::lower_bound(vals.begin(), vals.end(), B[j]) - vals.begin();
+        M[c][j >> 6] |= 1ULL << (j & 63);
+    }
+    std::vector<int> as(A.size());
+    for (size_t i = 0; i < A.size(); i++) {
+        int p = std::lower_bound(vals.begin(), vals.end(), A[i]) - vals.begin();
+        as[i] = (p < K && vals[p] == A[i]) ? p : -1;
+    }
+    return lcs_internal::bp_core(as, M, W);
+}
+
+// ----------------------------------------------------------------------------
+// 長さのみ (4): b が重複なしのとき (LIS帰着)  O((n+m) log m), メモリ O(n+m)
+// 前提: 【bに重複がないこと】(assertで検査)。aの重複はOK。順列である必要はない。
+// ----------------------------------------------------------------------------
+template <class T>
+int lcs_len_distinct(const std::vector<T>& a, const std::vector<T>& b) {
+    std::map<T, int> pos;
+    for (int j = 0; j < (int)b.size(); j++) {
+        bool inserted = pos.emplace(b[j], j).second;
+        assert(inserted);  // bに重複 → 前提違反 (黙って誤答を返さない)
+    }
+    std::vector<int> lis;  // 狭義増加LIS (patience sorting)
+    for (const auto& x : a) {
+        auto it = pos.find(x);
+        if (it == pos.end()) continue;
+        auto p = std::lower_bound(lis.begin(), lis.end(), it->second);
+        if (p == lis.end()) lis.push_back(it->second);
+        else *p = it->second;
+    }
+    return lis.size();
+}
+
+// ----------------------------------------------------------------------------
+// 復元あり: O(nm) time / O(nm) space
+//   フラット1次元配列 + 行ポインタでキャッシュ効率を稼ぐ
+//   string でも vector<T> でも動く (共通部分列を同じ型で返す; T は == のみ必要)
+// ----------------------------------------------------------------------------
+template <class S>
+S lcs_restore(const S& a, const S& b) {
+    int n = a.size(), m = b.size();
+    std::vector<int> dp((size_t)(n + 1) * (m + 1), 0);
+    auto row = [&](int i) { return dp.data() + (size_t)i * (m + 1); };
+    for (int i = 1; i <= n; i++) {
+        const int* pv = row(i - 1);
+        int* cu = row(i);
+        const auto ai = a[i - 1];
+        for (int j = 1; j <= m; j++) {
+            cu[j] = (ai == b[j - 1]) ? pv[j - 1] + 1
+                                     : std::max(pv[j], cu[j - 1]);
+        }
+    }
+    S res;
+    int i = n, j = m;
+    while (i > 0 && j > 0) {
+        if (a[i - 1] == b[j - 1] && row(i)[j] == row(i - 1)[j - 1] + 1) {
+            res.push_back(a[i - 1]); i--; j--;
+        } else if (row(i - 1)[j] >= row(i)[j - 1]) i--;
+        else j--;
+    }
+    std::reverse(res.begin(), res.end());
+    return res;
+}

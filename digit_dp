@@ -1,0 +1,134 @@
+// ============================================================
+// 桁DP テンプレ (AtCoder用)
+//
+// 使い方:
+//   1. count_upto() の [EDIT] 部分 (状態・遷移・集計) を問題に合わせて書き換える
+//   2. [0, N]     → count_upto(s)
+//      [L, R]     → count_range(l, r)   (l, r は文字列)
+//
+// 前提: mint, rep, sz, vc, vv などのテンプレマクロ + ACL
+//
+// チェックリスト (頻出バグ):
+//   [ ] mask更新は | (&にしない)
+//   [ ] leading zero 中は mask を汚染しない (0のビットが混入する)
+//   [ ] x = 0 の除外 (l == 0 を集計から外す)
+//   [ ] tight の更新は (t && m == c)
+//   [ ] 「ちょうどk個」系の集計は if分岐より cnt == k で数える
+// ============================================================
+
+// ---------- 文字列デクリメント: "1000" -> "999", "1" -> "0" ----------
+string dec_str(string s) {
+    int i = sz(s) - 1;
+    while (i >= 0 && s[i] == '0') s[i--] = '9';
+    assert(i >= 0);  // s == "000..0" は不可
+    s[i]--;
+    if (s[0] == '0' && sz(s) > 1) s = s.substr(1);
+    return s;
+}
+
+// ---------- [0, N] の個数 ----------
+// 現在の中身は例題:
+//   A: 3の倍数 / B: 十進表記に3を含む / C: ちょうど3種類の数字
+//   のうち「ちょうど1つ」を満たす個数
+mint count_upto(const string& s) {
+    int n = sz(s);
+
+    // [EDIT] 状態: dp[tight][問題固有の状態...]
+    //   例: mod3 × 使用数字mask
+    vector dp(2, vv<mint>(3, vc<mint>(1 << 10, 0)));
+    dp[1][0][0] = 1;
+
+    rep(i, n) {
+        vector ndp(2, vv<mint>(3, vc<mint>(1 << 10, 0)));
+        int c = s[i] - '0';
+        rep(t, 2) rep(j, 3) rep(l, 1 << 10) {
+            mint cur = dp[t][j][l];
+            if (cur.val() == 0) continue;
+            int lim = t ? c : 9;
+            rep(m, lim + 1) {
+                int nt = (t && m == c);
+                // [EDIT] 遷移
+                // leading zero 中 (l == 0) に 0 を置くときは mask を汚染しない
+                int nl = (l == 0 && m == 0) ? 0 : (l | (1 << m));
+                ndp[nt][(j + m) % 3][nl] += cur;
+            }
+        }
+        swap(dp, ndp);
+    }
+
+    // [EDIT] 集計
+    mint res = 0;
+    rep(t, 2) rep(j, 3) rep(l, 1 << 10) {
+        if (l == 0) continue;  // x = 0 を除外
+        int cnt = (j == 0) + ((l >> 3) & 1) + (__builtin_popcount(l) == 3);
+        if (cnt == 1) res += dp[t][j][l];
+    }
+    return res;
+}
+
+// ---------- [0, N] の個数 (全桁保持版) ----------
+// dp[i] を全部持つ版。2個前の桁からの遷移や、途中の dp[i] を
+// 集計に使う問題向け。メモリ: (n+1) × 状態数 × 4B
+//   例: 状態 2×3×1024, n=500 → 約 25MB (OK)
+// 注意: 状態数が大きい問題で n 倍が効いて MLE しそうなら、
+//   2個前参照でも dp[i-1], dp[i], dp[i+1] の3枚だけ持って
+//   rotate する折衷案にする (deque<状態配列> や swap 3つ)
+mint count_upto_full(const string& s) {
+    int n = sz(s);
+
+    // [EDIT] 状態: dp[i][tight][問題固有の状態...]
+    vector dp(n + 1, vector(2, vv<mint>(3, vc<mint>(1 << 10, 0))));
+    dp[0][1][0][0] = 1;
+
+    rep(i, n) {
+        int c = s[i] - '0';
+        rep(t, 2) rep(j, 3) rep(l, 1 << 10) {
+            mint cur = dp[i][t][j][l];
+            if (cur.val() == 0) continue;
+            int lim = t ? c : 9;
+            rep(m, lim + 1) {
+                int nt = (t && m == c);
+                // [EDIT] 遷移 (dp[i-1] 参照なども可)
+                int nl = (l == 0 && m == 0) ? 0 : (l | (1 << m));
+                dp[i + 1][nt][(j + m) % 3][nl] += cur;
+            }
+        }
+    }
+
+    // [EDIT] 集計
+    mint res = 0;
+    rep(t, 2) rep(j, 3) rep(l, 1 << 10) {
+        if (l == 0) continue;  // x = 0 を除外
+        int cnt = (j == 0) + ((l >> 3) & 1) + (__builtin_popcount(l) == 3);
+        if (cnt == 1) res += dp[n][t][j][l];
+    }
+    return res;
+}
+
+// ---------- [L, R] の個数 ----------
+mint count_range(const string& l, const string& r) {
+    if (l == "0") return count_upto(r);
+    return count_upto(r) - count_upto(dec_str(l));
+}
+
+/*
+使用例:
+
+void solve() {
+    string s; cin >> s;
+    cout << count_upto(s).val() << endl;
+}
+
+void solve() {
+    string l, r; cin >> l >> r;
+    cout << count_range(l, r).val() << endl;
+}
+
+書き換えの目安:
+- 「d の倍数」        → mod の次元を 3 から d に
+- 「特定の数字を含む」 → mask のビット判定 (l >> digit & 1)
+- 「数字がk種類」      → __builtin_popcount(l) == k
+- 「数字和が~」        → mod 次元を数字和に (最大 9 * 桁数 + 1)
+- 「隣接桁の条件」     → 直前の数字を状態に追加 (leading zero中は「なし」を表す番兵)
+- 答えが個数でなく総和 → (個数, 総和) のペアを持つ / mint2つ持ち
+*/

@@ -1,0 +1,27 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+
+//pre_process(元のvvc (h*w), 累積和vvc(h+1,w+1))  O(h*w)
+//vに対して作るなら pre_process(v,cmv)
+//queryは [h1,h2) × [w1,w2)   O(1)
+//引数の最後にcmvを渡す query(h1,w1,h2,w2,cmv)
+
+
+
+void pre_process(vector<vector<int>> const &a, vector<vector<int>> &S) {
+	int H = (int)a.size();
+	int W = (int)a[0].size();
+	S.assign(H + 1, vector<int>(W + 1));
+	for (int h = 1; h < H + 1; h++) {
+		for (int w = 1; w < W + 1; w++) {
+			S[h][w] = a[h - 1][w - 1] + S[h][w - 1] + S[h - 1][w] - S[h - 1][w - 1];
+		}
+	}
+}
+
+
+int query(int h1, int w1, int h2, int w2, vector<vector<int>> const &S) {
+	return S[h2][w2] - S[h1][w2] - S[h2][w1] + S[h1][w1];
+}
+

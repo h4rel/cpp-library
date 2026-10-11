@@ -1,0 +1,296 @@
+// ᓀ‸ᓂ
+
+#pragma GCC optimize("O3")
+#pragma GCC optimize("unroll-loops")
+
+#include <bits/stdc++.h>
+using namespace std;
+using ll = long long;
+#define all(a) (a).begin(),(a).end()
+#define rall(a) (a).rbegin(),(a).rend()
+#define reps(i, a, n) for (int i = (a); i < (int)(n); i++)
+
+#define ov4(a, b, c, d, name, ...) name
+#define rep3(i, a, b, c) for(ll i = (a); i < (b); i += (c))
+#define rep2(i, a, b) rep3(i, a, b, 1)
+#define rep1(i, n) rep2(i, 0, n)
+#define rep0(n) rep1(aaaaa, n)
+#define rep(...) ov4(__VA_ARGS__, rep3, rep2, rep1, rep0)(__VA_ARGS__)
+
+#define rreps(i, a, n) for (int i = (a); i > (int)(n); i--)
+#define rrep(i, n) rreps(i, (n)-1, -1)
+
+
+#define pd push_back
+#define pob pop_back
+#define sz(x) (int)(x).size()   // KACTL用
+#define si(x) (int)(x).size()   // icpc_library用
+#define eb emplace_back          // icpc_library用
+#define fore(e, v) for(auto&& e : v)  // icpc_library用
+
+const int inf = 0x3f3f3f3f;
+const ll INF = 0x3f3f3f3f3f3f3f3f;
+
+#define per(i, a, b) for (ll i = (a)-1; i >= (b); i--)
+#define lb(v, x) (lower_bound(all(v), x) - begin(v))
+#define i128 __int128_t
+using vi = vector<int>;
+using vl = vector<ll>;
+const ll INFL = 3e18 + 100;
+
+
+ll myceil(ll a, ll b){ return (a+b-1)/b; }
+ll floordiv(ll a, ll b){ return a/b - ((a^b)<0 && a%b); }
+
+template<typename T> using vc = vector<T>;
+template<typename T> using vv = vc<vc<T>>;
+template<typename T> using vvv = vv<vc<T>>;
+using pii = pair<int,int>;
+using pll = pair<ll,ll>;
+
+template<typename T> using p_q = priority_queue<T,vc<T>>;
+template<typename T> using p_qg = priority_queue<T,vc<T>,greater<T>>;
+
+
+template<class T>
+vc<T> make_vec(int n, T val) { return vc<T>(n, val); }
+
+template<class T, class... Args>
+auto make_vec(int n, Args... args) {
+    return vector(n, make_vec<T>(args...));
+}
+
+// make_vec を使う（もっと短い）
+// auto dp = make_vec<int>(n, m, k, 0);        // 3次元
+// auto dist = make_vec<long long>(h, w, INF);  // 2次元
+// auto v = make_vec<mint>(n, m, mint(0));      // modint でも OK
+
+template<class T, class U> inline bool chmax(T &a, const U &b){ return a < b ? (a=b,true) : false; }
+template<class T, class U> inline bool chmin(T &a, const U &b){ return a > b ? (a=b,true) : false; }
+
+// ---- I/O ----
+template<class T, class U> istream& operator>>(istream& is, pair<T,U>& p){ return is >> p.first >> p.second; }
+template<class T> istream& operator>>(istream& is, vc<T>& v){ for(auto& x : v) is >> x; return is; }
+template<class T, class U> ostream& operator<<(ostream& os, const pair<T,U>& p){ return os << p.first << ' ' << p.second; }
+template<class T> ostream& operator<<(ostream& os, const vc<T>& v){
+    for(size_t i = 0; i < v.size(); i++) os << v[i] << (i+1 < v.size() ? " " : "");
+    return os << '\n';
+}
+
+template<class T> vector<T> vin(int n) {
+    vector<T> v(n);
+    for (auto& x : v) cin >> x;
+    return v;
+}
+// auto a = vin<int>(n);
+// auto s = vin<string>(n);
+
+template<class T> vector<vector<T>> vin2(int h, int w) {
+    vector<vector<T>> v(h, vector<T>(w));
+    for (auto& row : v) for (auto& x : row) cin >> x;
+    return v;
+}
+
+void yn(bool cond) {
+    cout << (cond ? "Yes" : "No") << '\n';
+}
+
+// ---- debug ----
+// -DDEBUG_TO_COUT をつけると cout に切替
+#ifdef DEBUG_TO_COUT
+#define DOUT cout
+#else
+#define DOUT cerr
+#endif
+
+template<typename T, typename = void> struct has_val : false_type {};
+template<typename T> struct has_val<T, void_t<decltype(declval<T>().val())>> : true_type {};
+
+template<typename T> auto view(const T& e) -> enable_if_t<!has_val<T>::value> { DOUT << e; }
+template<typename T> auto view(const T& e) -> enable_if_t<has_val<T>::value> { DOUT << e.val(); }
+template<typename T1, typename T2> void view(const pair<T1,T2>& p){ DOUT << "{"; view(p.first); DOUT << ", "; view(p.second); DOUT << "}"; }
+template<typename T> void view(const vc<T>& v){ for(const auto& e : v){ view(e); DOUT << " "; } DOUT << endl; }
+template<typename T> void view(const vv<T>& vv){ for(const auto& v : vv) view(v); DOUT << endl; }
+template<typename T> void view(const set<T>& s){ for(const auto& e : s){ view(e); DOUT << " "; } DOUT << endl; }
+template<typename T> void view(const multiset<T>& s){ for(const auto& e : s){ view(e); DOUT << " "; } DOUT << endl; }
+template<typename T> void view(const unordered_set<T>& s){ for(const auto& e : s){ view(e); DOUT << " "; } DOUT << endl; }
+template<typename T> void view(const unordered_multiset<T>& s){ for(const auto& e : s){ view(e); DOUT << " "; } DOUT << endl; }
+template<typename T1, typename T2> void view(const map<T1,T2>& mp){ for(const auto& e : mp){ view(e); DOUT << " "; } DOUT << endl; }
+template<typename T> void view(stack<T> s){ while(!s.empty()){ view(s.top()); DOUT << " "; s.pop(); } DOUT << endl; }
+template<typename T> void view(queue<T> q){ while(!q.empty()){ view(q.front()); DOUT << " "; q.pop(); } DOUT << endl; }
+template<typename T, typename Cont, typename Comp> void view(priority_queue<T,Cont,Comp> pq){ while(!pq.empty()){ view(pq.top()); DOUT << " "; pq.pop(); } DOUT << endl; }
+
+#ifdef LOCAL
+#define debug(var) do { DOUT << #var << " :\n"; view(var); DOUT << endl; } while(0)
+#else
+#define debug(var)
+#endif
+
+
+ll rnd(ll l, ll r) {  //[l, r)
+   static mt19937_64 gen(chrono::steady_clock::now().time_since_epoch().count());
+   return uniform_int_distribution<ll>(l, r - 1)(gen);
+}
+template<typename T> void rndshuf(vector<T>& v) { rep(i, 1, si(v)) swap(v[i], v[rnd(0, i)]); }
+template<class T> vector<T> rvi(int n, T l, T r, bool unique = false) {
+   if(unique) {
+      assert(r - l >= n);
+      vector<T> res;
+      rep(i, n) res.eb(rnd(l, r - n + 1));
+      sort(all(res));
+      rep(i, n) res[i] += i;
+      rndshuf(res);
+      return res;
+   }
+   vector<T> v(n);
+   fore(e, v) e = rnd(l, r);
+   return v;
+}
+
+#include <atcoder/all>
+using namespace atcoder;
+using mint  = modint998244353;
+using mint1 = modint1000000007;
+
+// pow(n,k)を配列にしておくやつ
+vector<long long> pwll(long long n, int k) {
+    vector<long long> pw(k + 1);
+    pw[0] = 1;
+    for (int i = 1; i <= k; i++) pw[i] = pw[i - 1] * n;
+    return pw;
+}
+vector<mint> pwmd(long long n, int k) {
+    vector<mint> pw(k + 1);
+    pw[0] = 1;
+    for (int i = 1; i <= k; i++) pw[i] = pw[i - 1] * n;
+    return pw;
+}
+
+
+// ---------- 無向/有向グラフ (重みなし) ----------
+using Graph = vector<vector<int>>;
+
+struct GinResult {
+    Graph g;
+    vector<pair<int,int>> es;
+};
+
+GinResult gin(int n, int m, bool directed = false, int idx = 1, bool store_edges = false) {
+    GinResult res;
+    res.g.resize(n);
+    rep(_, m) {
+        int u, v; cin >> u >> v;
+        u -= idx; v -= idx;
+        res.g[u].push_back(v);
+        if (!directed) res.g[v].push_back(u);
+        if (store_edges) res.es.push_back({u, v});
+    }
+    return res;
+}
+
+// ---------- 無向/有向グラフ (重み付き) ----------
+using WGraph = vector<vector<pair<int, long long>>>;
+
+struct GinWResult {
+    WGraph g;
+    vector<tuple<int, int, long long>> es;
+};
+
+GinWResult ginw(int n, int m, bool directed = false, int idx = 1, bool store_edges = false) {
+    GinWResult res;
+    res.g.resize(n);
+    rep(_, m) {
+        int u, v; long long w; cin >> u >> v >> w;
+        u -= idx; v -= idx;
+        res.g[u].push_back({v, w});
+        if (!directed) res.g[v].push_back({u, w});
+        if (store_edges) res.es.push_back({u, v, w});
+    }
+    return res;
+}
+
+/*
+// 辺リスト不要（従来通り）
+auto [g, _] = gin(n, m);
+
+// 辺リストも欲しい（クラスカルとか）
+auto [g, es] = gin(n, m, false, 1, 1);
+sort(all(es));
+
+// 重み付き + 辺リスト保存
+auto [g, es] = ginw(n, m, false, 1, 1);
+sort(all(es), [](auto& a, auto& b) {
+    return get<2>(a) < get<2>(b);
+});
+
+// 有向 + 0-indexed
+auto [g, es] = ginw(n, m, true, 0, 1);
+
+// 隣接リストだけでいいとき
+auto [g, _] = ginw(n, m);
+// g[u] = {{v1, w1}, {v2, w2}, ...}
+for (auto [v, w] : g[u]) { ... }
+*/
+
+// 座標圧縮
+template<class T>
+pair<vector<int>, vector<T>> compress(const vector<T>& v) {
+    vector<T> xs = v;
+    sort(all(xs)); xs.erase(unique(all(xs)), xs.end());
+    vector<int> res(sz(v));
+    rep(i, sz(v)) res[i] = lower_bound(all(xs), v[i]) - xs.begin();
+    return {res, xs};
+}
+// vector<long long> v = {30, 10, 40, 10, 30};
+// auto [idx, vals] = compress(v);
+// idx  = {1, 0, 2, 0, 1}   ← 圧縮後の番号
+// vals = {10, 30, 40}       ← 逆引き表
+
+// ---------- グリッド探索 ----------
+const int dx4[] = {0, 1, 0, -1};
+const int dy4[] = {1, 0, -1, 0};
+const int dx8[] = {0, 1, 0, -1, 1, 1, -1, -1};
+const int dy8[] = {1, 0, -1, 0, 1, -1, 1, -1};
+bool inside(int x, int y, int h, int w) {
+    return 0 <= x && x < h && 0 <= y && y < w;
+}
+// ---------- 重複除去 ----------
+template<class T>
+void uniq(vector<T>& v) {
+    sort(all(v));
+    v.erase(unique(all(v)), v.end());
+}
+template<class F>
+long long bisect(long long ok, long long ng, F f) {
+    while (abs(ok - ng) > 1) {
+        long long mid = (ok + ng) / 2;
+        (f(mid) ? ok : ng) = mid;
+    }
+    return ok;
+}
+
+/*==============*/
+
+void solve() {
+    
+}
+
+
+int main() {
+    cin.tie(nullptr);
+    ios_base::sync_with_stdio(false);
+    // cout << fixed << setprecision(15);
+
+    int t = 1;
+    // cin >> t;
+    rep(i, t) solve();
+
+
+    // while (1) {
+        
+    //     if (1) break;
+    //     solve();
+    // }
+
+    return 0;
+}

@@ -1,0 +1,36 @@
+#include <atcoder/modint>
+using namespace atcoder;
+using mint = modint998244353;
+
+const int MAX = 10000010;
+mint fac[MAX], finv[MAX];
+
+void COMinit(int sz = MAX) {
+    fac[0] = 1;
+    for (int i = 1; i < sz; i++) fac[i] = fac[i - 1] * i;
+    finv[sz - 1] = fac[sz - 1].inv();
+    for (int i = sz - 2; i >= 0; i--) finv[i] = finv[i + 1] * (i + 1);
+}
+
+mint COM(int n, int k) {
+    if (n < k || n < 0 || k < 0) return 0;
+    return fac[n] * finv[k] * finv[n - k];
+}
+
+mint PER(int n, int k) {
+    if (n < k || n < 0 || k < 0) return 0;
+    return fac[n] * finv[n - k];
+}
+
+mint HOM(int n, int k) {
+    return COM(n + k - 1, k);
+}
+
+// COMinit()  O(N)  デフォルトでMAXまで初期化
+// COMinit(n) O(n)  必要な範囲だけ初期化
+// COM(n, k)  O(1)  二項係数 nCk
+// PER(n, k)  O(1)  順列 nPk
+// HOM(n, k)  O(1)  重複組合せ nHk = C(n+k-1, k)
+// fac[n]           n! mod MOD
+// finv[n]          (n!)^{-1} mod MOD
+// 制約: 0 ≦ k ≦ n < sz (HOMはn+k-1 < sz)

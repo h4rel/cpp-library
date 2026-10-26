@@ -1,5 +1,8 @@
 // ᓀ‸ᓂ
 
+// Author: harel
+// template & my library: https://github.com/h4rel/cpp-library
+
 #pragma GCC optimize("O3")
 #pragma GCC optimize("unroll-loops")
 
